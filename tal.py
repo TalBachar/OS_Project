@@ -5,13 +5,14 @@
 
 class Process:
 
-    def __init__(self, realtime, bytes):
+    def __init__(self, pid, realtime, bytes):
+        self.pid = pid
         self.realtime = realtime
         self.bytes = bytes
 
     def pcb(self):
-        print(self.realtime)
-        print(self.bytes)
+        print("\t", self.pid, "\t ", self.realtime, "\t", self.bytes)
+
 
 def computer_specs():
     #RAM memory
@@ -26,59 +27,31 @@ def computer_specs():
 
     return RAM_memory, num_of_harddisk;
 
-'''
-def user_action():
-    action = str(input(""))
-
-    if action.split()[0] == "A":
-        Process(False, action.split()[1])
-    elif action.split()[0] == "AR":
-        Process(True, action.split()[1])
-'''
 ##################################################################
 def main():
     RAM_memory, num_of_harddisk = computer_specs()
 
     process_list = []
+    pid = 0
 
     while True:
+
         user_input = str(input(""))
 
         if user_input.split()[0] == "A":
-            process_list.append(Process(False, user_input.split()[1]))
+            pid += 1
+            process_list.append(Process(pid, False, user_input.split()[1]))
         elif user_input.split()[0] == "AR":
-            process_list.append(Process(True, user_input.split()[1]))
-        break
+            pid += 1
+            process_list.append(Process(pid, True, user_input.split()[1]))
+        elif user_input.split()[0] == "S":
+            if user_input.split()[1] == "r":
+                print("\tPID \t  TYPE \t STATUS")
+                for p in process_list:
+                    p.pcb()
 
 
 
-    for obj in process_list:
-        obj.pcb()
 
 
 main()
-'''
-            # Python3 code here for creating class
-        class geeks:
-        	def __init__(self, x, y):
-        		self.x = x
-        		self.y = y
-
-        	def Sum(self):
-        		print( self.x + self.y )
-
-        # creating list
-        list = []
-
-        # appending instances to list
-        list.append( geeks(2, 3) )
-        list.append( geeks(12, 13) )
-        list.append( geeks(22, 33) )
-
-        for obj in list:
-        	# calling method
-        	obj.Sum()
-
-        # We can also access instances method
-        # as list[0].Sum, list[1].Sum and so on.
-'''
