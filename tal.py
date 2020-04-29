@@ -199,36 +199,47 @@ def main():
         user_input = str(input(""))
 #Add common process
         if user_input.split()[0] == "A":
-            pid += 1
-            if (not ready_queue):
-                using_cpu = True
+            if (bytes_counter + int(user_input.split()[1])) > RAM_memory:
+                print("Memory used exceeds RAM memory available!")
 
-            new_common_process = Process(pid, False, bytes_counter+1, bytes_counter+int(user_input.split()[1]), using_cpu, False)
-            ready_queue.append(new_common_process)
-            bytes_counter += int(user_input.split()[1])
+            else:
+                pid += 1
+                if (not ready_queue):
+                    using_cpu = True
+
+                new_common_process = Process(pid, False, (bytes_counter+1),
+                                     (bytes_counter+int(user_input.split()[1])), using_cpu, False)
+                ready_queue.append(new_common_process)
+                bytes_counter += int(user_input.split()[1])
 
 #Add realtime process
         elif user_input.split()[0] == "AR":
-            flag = False    #flag to check if RQ was empty
-            pid += 1
-            if not ready_queue:
-                using_cpu = True
-                new_rt_process = Process(pid, True, bytes_counter+1, bytes_counter + int(user_input.split()[1]), using_cpu, False)
-                ready_queue.append(new_rt_process)
-                bytes_counter += int(user_input.split()[1])
-                flag = True     #ready_queue was empty, added RT process
+            if (bytes_counter + int(user_input.split()[1])) > RAM_memory:
+                print("Memory used exceeds RAM memory available!")
 
-            if flag == False:   #if RQ was not empty
-                for p in ready_queue:
-                    if p.realtime == "Realtime":
-                        using_cpu = False
-                        break
-                    else:
-                        preempt(ready_queue)   #preempt CPU-using processes, set got_preempted=True
-                        using_cpu = True
-                new_rt_process = Process(pid, True, bytes_counter+1, bytes_counter + int(user_input.split()[1]), using_cpu, False)
-                ready_queue.append(new_rt_process)
-                bytes_counter += int(user_input.split()[1])
+            else:
+                flag = False    #flag to check if RQ was empty
+                pid += 1
+                if not ready_queue:
+                    using_cpu = True
+                    new_rt_process = Process(pid, True, (bytes_counter+1),
+                                     (bytes_counter + int(user_input.split()[1])), using_cpu, False)
+                    ready_queue.append(new_rt_process)
+                    bytes_counter += int(user_input.split()[1])
+                    flag = True     #ready_queue was empty, added RT process
+
+                if flag == False:   #if RQ was not empty
+                    for p in ready_queue:
+                        if p.realtime == "Realtime":
+                            using_cpu = False
+                            break
+                        else:
+                            preempt(ready_queue)   #preempt CPU-using processes, set got_preempted=True
+                            using_cpu = True
+                    new_rt_process = Process(pid, True, (bytes_counter+1),
+                                     (bytes_counter + int(user_input.split()[1])), using_cpu, False)
+                    ready_queue.append(new_rt_process)
+                    bytes_counter += int(user_input.split()[1])
 
 #show ready queue and running Process
         elif user_input.split()[0] == "S":
@@ -259,6 +270,8 @@ def main():
                     current_process = p
                     break
             terminate_process(ready_queue, current_process)
+            bytes_free = (current_process.bytes_e - current_process.bytes_s)
+            
 
 #move running process to HDD queue
         elif user_input.split()[0] == "d":
@@ -276,10 +289,13 @@ def main():
             drive_chosen = int(user_input.split()[1])
             HDD[drive_chosen].return_process(ready_queue)
 
-
-
+#quit option
         elif user_input == "quit":
             sys.exit(0)
+
+#invalid
+        else:
+            print(user_input, "is not a valid action!\n")
 
 ################################################################################
 
