@@ -4,6 +4,7 @@
 # Prof. Pavel Shostak
 
 import sys
+
 ################################################################################
 class Process:
     def __init__(self, pid, realtime, bytes_s, bytes_e, using_cpu, got_preempted):
@@ -50,8 +51,22 @@ class MemoryHoles(list):
             if i[0] >= i[1]:
                 self.remove(i)
 
+        for thisHole,nextHole in zip(self, self[1:]):
+            start = thisHole[0]
+            end = nextHole[1]
+
+            if thisHole[1] + 1 == nextHole[0]:
+                self.remove(thisHole)
+                self.remove(nextHole)
+                new_hole_range = [start, end]
+                self.append(new_hole_range)
+                self.sort(key=lambda x: x[0])
+
+
+
     def print_list(self):
         print(self)
+
 ################################################################################
 class Harddisk(list):
 
@@ -130,7 +145,7 @@ def preempt(ready_queue):
             process.using_cpu = False
             process.got_preempted = True
 
-##################################################################
+################################################################################
 def print_Sr(ready_queue):
 
     print("\tPID\t  TYPE\t\tSTATUS")
@@ -359,8 +374,6 @@ def main():
                 else:
                     print ("HDD", drive_chosen,"queue is empty")
 
-        elif user_input == "holes":
-            mem_holes.print_list()
 #quit option
         elif user_input == "quit":
             sys.exit(0)
