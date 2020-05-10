@@ -89,12 +89,11 @@ def timeSliceEnded(ready_queue, current_process):
     chooseNext(ready_queue, current_process)
 
 ################################################################################
-
 def chooseNext(ready_queue, current_process):
     current_process.using_cpu = False
 
     for p in ready_queue:
-        if p.got_preempted == True and p.realtime == "Realtime" and p != current_process: #RT process that got preempted starts running
+        if p.got_preempted == True and p.realtime == "Realtime" and p != current_process:
             p.using_cpu = True
             p.got_preempted = False
             return False
@@ -116,14 +115,36 @@ def chooseNext(ready_queue, current_process):
             break
 
 ################################################################################
-
 def terminate_process(ready_queue, current_process):
 
     chooseNext(ready_queue, current_process)
     ready_queue.remove(current_process)
 
 ################################################################################
+class MemoryHoles(list):
 
+
+# when process is terminated, will create a list of start of memory hole and end of memory hole
+    def insert_hole(self, terminated_process):
+        bytes_list = [terminated_process.bytes_s, terminated_process.bytes_e]
+        self.append(bytes_list)
+
+# will check in all memory holes if the space needed fits in one of the holes.
+# if it fits, new process will be assinged to fill hole, and the hole will shrink accordingly.
+# if it doesn't fit, will return sentinel (-1)
+    def check_available_holes(self, needed_space):
+        sentinel = -1
+        if not self:
+            return sentinel
+        for holes in self:
+            if ((holes[1] - holes[0]) + 1) >= needed_space:
+                start_mem = int(holes[0])
+                holes[0] += needed_space
+                return start_mem
+            else:
+                return sentinel
+
+################################################################################
 class Harddisk(list):
 
     def add_process(self, new_process):
@@ -158,7 +179,7 @@ class Harddisk(list):
             if p.using_cpu == True:
                 current_process = p
 
-        for p in ready_queue:
+        for p in ready_queue:   #check if there is a RT process in the RQ
             if p.realtime == "Realtime":
                 flag1 = True
             else:
@@ -181,7 +202,6 @@ class Harddisk(list):
                 self.remove(current_process)
 
 ################################################################################
-
 def main():
     RAM_memory, num_of_harddisk = computer_specs()
 
@@ -189,6 +209,7 @@ def main():
     for drives in range(num_of_harddisk):
         HDD.append(Harddisk())
 
+    mem_holes = MemoryHoles()
     ready_queue = []
     pid = 0
     bytes_counter = -1
@@ -203,14 +224,22 @@ def main():
                 print("Memory used exceeds RAM memory available!")
 
             else:
+                available_hole = 0
                 pid += 1
                 if (not ready_queue):
                     using_cpu = True
 
-                new_common_process = Process(pid, False, (bytes_counter+1),
+                available_hole = mem_holes.check_available_holes(int(user_input.split()[1]))
+                if available_hole >= 0:
+                    print("Creating process in hole, mem_start at:", available_hole)
+                    new_common_process = Process(pid, False, available_hole,
+                                         (available_hole+int(user_input.split()[1])-1), using_cpu, False)
+                else:
+                    new_common_process = Process(pid, False, (bytes_counter+1),
                                      (bytes_counter+int(user_input.split()[1])), using_cpu, False)
+                    bytes_counter += int(user_input.split()[1])
+
                 ready_queue.append(new_common_process)
-                bytes_counter += int(user_input.split()[1])
 
 #Add realtime process
         elif user_input.split()[0] == "AR":
@@ -218,17 +247,27 @@ def main():
                 print("Memory used exceeds RAM memory available!")
 
             else:
+                available_hole = 0
                 flag = False    #flag to check if RQ was empty
                 pid += 1
                 if not ready_queue:
+                    available_hole = mem_holes.check_available_holes(int(user_input.split()[1]))
                     using_cpu = True
-                    new_rt_process = Process(pid, True, (bytes_counter+1),
-                                     (bytes_counter + int(user_input.split()[1])), using_cpu, False)
+                    if available_hole >= 0:
+                        print("Creating process in hole, mem_start at:", available_hole)
+                        new_rt_process = Process(pid, True, available_hole,
+                                        (available_hole + int(user_input.split()[1]) -1), using_cpu, False)
+                    else:
+                        new_rt_process = Process(pid, True, (bytes_counter+1),
+                                         (bytes_counter + int(user_input.split()[1])), using_cpu, False)
+                        bytes_counter += int(user_input.split()[1])
+
                     ready_queue.append(new_rt_process)
-                    bytes_counter += int(user_input.split()[1])
                     flag = True     #ready_queue was empty, added RT process
 
                 if flag == False:   #if RQ was not empty
+                    available_hole = mem_holes.check_available_holes(int(user_input.split()[1]))
+
                     for p in ready_queue:
                         if p.realtime == "Realtime":
                             using_cpu = False
@@ -236,10 +275,15 @@ def main():
                         else:
                             preempt(ready_queue)   #preempt CPU-using processes, set got_preempted=True
                             using_cpu = True
-                    new_rt_process = Process(pid, True, (bytes_counter+1),
-                                     (bytes_counter + int(user_input.split()[1])), using_cpu, False)
+                    if available_hole >= 0:
+                        print("Creating process in hole, mem_start at:", available_hole)
+                        new_rt_process = Process(pid, True, available_hole,
+                                        (available_hole + int(user_input.split()[1]) -1), using_cpu, False)
+                    else:
+                        new_rt_process = Process(pid, True, (bytes_counter+1),
+                                         (bytes_counter + int(user_input.split()[1])), using_cpu, False)
+                        bytes_counter += int(user_input.split()[1])
                     ready_queue.append(new_rt_process)
-                    bytes_counter += int(user_input.split()[1])
 
 #show ready queue and running Process
         elif user_input.split()[0] == "S":
@@ -269,9 +313,11 @@ def main():
                 if p.using_cpu == True:
                     current_process = p
                     break
+            mem_holes.insert_hole(current_process)
             terminate_process(ready_queue, current_process)
-            bytes_free = (current_process.bytes_e - current_process.bytes_s)
-            
+
+            bytes_free = (current_process.bytes_e - current_process.bytes_s) #NEEDED???
+
 
 #move running process to HDD queue
         elif user_input.split()[0] == "d":
