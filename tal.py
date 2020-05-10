@@ -18,6 +18,98 @@ class Process:
         self.got_preempted = got_preempted
 
 ################################################################################
+class MemoryHoles(list):
+
+
+# when process is terminated, will create a list of start of memory hole and end of memory hole
+    def insert_hole(self, terminated_process):
+        bytes_list = [terminated_process.bytes_s, terminated_process.bytes_e]
+        self.append(bytes_list)
+        self.organize_list()
+
+# will check in all memory holes if the space needed fits in one of the holes.
+# if it fits, new process will be assinged to fill hole, and the hole will shrink accordingly.
+# if it doesn't fit, will return sentinel (-1)
+    def check_available_holes(self, needed_space):
+        sentinel = -1
+        if not self:
+            return sentinel
+        for holes in self:
+            if ((holes[1] - holes[0]) + 1) >= needed_space:
+                start_mem = int(holes[0])
+                holes[0] += needed_space
+                self.organize_list()
+                return start_mem
+        return sentinel
+
+
+
+    def organize_list(self):
+        self.sort(key=lambda x: x[0])
+        for i in self:
+            if i[0] >= i[1]:
+                self.remove(i)
+
+    def print_list(self):
+        print(self)
+################################################################################
+class Harddisk(list):
+
+    def add_process(self, new_process):
+        self.append(new_process)
+
+    def show_queue(self):
+        print("\tPID\t  TYPE\t\tSTATUS")
+        print("\t--------------------------------")
+        for p in self:
+            if p.realtime == True:
+                p.using_cpu = True
+                break
+            else:
+                self[0].using_cpu = True
+
+        for p in self:
+        #Check if there is a serviced procces, and if so print it first
+            if p.using_cpu == True:
+                print("\t", p.pid, "\t", p.realtime, "\t", "Serviced by HDD")
+
+        for p in self:
+            if p.using_cpu == False and p.realtime == "Realtime":
+                print("\t", p.pid, "\t", p.realtime, "\t", "Waiting")
+
+        #Print rest of preocesses
+        for p in self:
+            if p.using_cpu == False and p.realtime == "Common":
+                print("\t", p.pid, "\t", p.realtime, "\t", "Waiting")
+
+    def return_process(self, ready_queue):
+        for p in self:
+            if p.using_cpu == True:
+                current_process = p
+
+        for p in ready_queue:   #check if there is a RT process in the RQ
+            if p.realtime == "Realtime":
+                flag1 = True
+            else:
+                flag1 = False
+
+        if flag1 == True: #There is a RT process running already
+            current_process.using_cpu = False
+            ready_queue.append(current_process)
+            self.remove(current_process)
+
+        if flag1 == False: #there are no RT processes in RQ
+            if current_process.realtime == "Realtime":
+                preempt(ready_queue)
+                current_process.using_cpu = True
+                ready_queue.append(current_process)
+                self.remove(current_process)
+            elif current_process.realtime == "Common":
+                current_process.using_cpu = False
+                ready_queue.append(current_process)
+                self.remove(current_process)
+
+################################################################################
 def computer_specs():
     #RAM memory
     RAM_memory = int(input("\n\n\tPlease enter amount of RAM memory on simulated computer: "))
@@ -119,87 +211,6 @@ def terminate_process(ready_queue, current_process):
 
     chooseNext(ready_queue, current_process)
     ready_queue.remove(current_process)
-
-################################################################################
-class MemoryHoles(list):
-
-
-# when process is terminated, will create a list of start of memory hole and end of memory hole
-    def insert_hole(self, terminated_process):
-        bytes_list = [terminated_process.bytes_s, terminated_process.bytes_e]
-        self.append(bytes_list)
-
-# will check in all memory holes if the space needed fits in one of the holes.
-# if it fits, new process will be assinged to fill hole, and the hole will shrink accordingly.
-# if it doesn't fit, will return sentinel (-1)
-    def check_available_holes(self, needed_space):
-        sentinel = -1
-        if not self:
-            return sentinel
-        for holes in self:
-            if ((holes[1] - holes[0]) + 1) >= needed_space:
-                start_mem = int(holes[0])
-                holes[0] += needed_space
-                return start_mem
-            else:
-                return sentinel
-
-################################################################################
-class Harddisk(list):
-
-    def add_process(self, new_process):
-        self.append(new_process)
-
-    def show_queue(self):
-        print("\tPID\t  TYPE\t\tSTATUS")
-        print("\t--------------------------------")
-        for p in self:
-            if p.realtime == True:
-                p.using_cpu = True
-                break
-            else:
-                self[0].using_cpu = True
-
-        for p in self:
-        #Check if there is a serviced procces, and if so print it first
-            if p.using_cpu == True:
-                print("\t", p.pid, "\t", p.realtime, "\t", "Serviced by HDD")
-
-        for p in self:
-            if p.using_cpu == False and p.realtime == "Realtime":
-                print("\t", p.pid, "\t", p.realtime, "\t", "Waiting")
-
-        #Print rest of preocesses
-        for p in self:
-            if p.using_cpu == False and p.realtime == "Common":
-                print("\t", p.pid, "\t", p.realtime, "\t", "Waiting")
-
-    def return_process(self, ready_queue):
-        for p in self:
-            if p.using_cpu == True:
-                current_process = p
-
-        for p in ready_queue:   #check if there is a RT process in the RQ
-            if p.realtime == "Realtime":
-                flag1 = True
-            else:
-                flag1 = False
-
-        if flag1 == True: #There is a RT process running already
-            current_process.using_cpu = False
-            ready_queue.append(current_process)
-            self.remove(current_process)
-
-        if flag1 == False: #there are no RT processes in RQ
-            if current_process.realtime == "Realtime":
-                preempt(ready_queue)
-                current_process.using_cpu = True
-                ready_queue.append(current_process)
-                self.remove(current_process)
-            elif current_process.realtime == "Common":
-                current_process.using_cpu = False
-                ready_queue.append(current_process)
-                self.remove(current_process)
 
 ################################################################################
 def main():
@@ -313,10 +324,11 @@ def main():
                 if p.using_cpu == True:
                     current_process = p
                     break
-            mem_holes.insert_hole(current_process)
-            terminate_process(ready_queue, current_process)
-
-            bytes_free = (current_process.bytes_e - current_process.bytes_s) #NEEDED???
+            if ready_queue:
+                mem_holes.insert_hole(current_process)
+                terminate_process(ready_queue, current_process)
+            else:
+                print ("Ready queue is empty")
 
 
 #move running process to HDD queue
@@ -326,15 +338,29 @@ def main():
                     current_process = p
                     break
             drive_chosen = int(user_input.split()[1])
-            HDD[drive_chosen].add_process(current_process)
-            chooseNext(ready_queue, current_process)
-            ready_queue.remove(current_process)
+
+            if drive_chosen > num_of_harddisk:
+                print ("HDD", drive_chosen, "does not exist")
+            elif ready_queue:
+                HDD[drive_chosen].add_process(current_process)
+                chooseNext(ready_queue, current_process)
+                ready_queue.remove(current_process)
+            else:
+                print ("Ready queue is empty")
 
 #HDD finished work for one process
         elif user_input.split()[0] == "D":
             drive_chosen = int(user_input.split()[1])
-            HDD[drive_chosen].return_process(ready_queue)
+            if drive_chosen > num_of_harddisk:
+                print ("HDD", drive_chosen, "does not exist")
+            else:
+                if HDD[drive_chosen]:
+                    HDD[drive_chosen].return_process(ready_queue)
+                else:
+                    print ("HDD", drive_chosen,"queue is empty")
 
+        elif user_input == "holes":
+            mem_holes.print_list()
 #quit option
         elif user_input == "quit":
             sys.exit(0)
